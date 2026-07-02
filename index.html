@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Arabic Test Generator — Lessons 1-10</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root{
     --navy:#1b3a6b;
@@ -110,6 +111,45 @@
     margin-bottom:10px;
     display:none;
   }
+
+  .email-settings{
+    border:1px solid #e2ddc9;
+    border-radius:8px;
+    margin-bottom:16px;
+    overflow:hidden;
+  }
+  .email-settings-toggle{
+    width:100%;
+    text-align:left;
+    background:#fdf8ec;
+    border:none;
+    padding:12px 14px;
+    font-size:0.92em;
+    font-weight:600;
+    color:var(--navy);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .email-settings-toggle:hover{ background:#faf1d8; }
+  #emailSettingsArrow{ transition:transform .2s; }
+  .email-settings.open #emailSettingsArrow{ transform:rotate(90deg); }
+  .email-settings-body{
+    display:none;
+    padding:14px;
+    border-top:1px solid #e2ddc9;
+    background:#fff;
+  }
+  .email-settings.open .email-settings-body{ display:block; }
+  .email-settings-body .form-field{ margin-bottom:12px; }
+  .email-settings-hint{
+    font-size:0.82em;
+    color:var(--gray);
+    margin-bottom:12px;
+    line-height:1.4;
+  }
+  .email-settings-hint a{ color:var(--navy); }
 
   /* ---- Quiz panel ---- */
   #quizPanel{ display:none; }
@@ -346,6 +386,37 @@
 
     <div class="page-avail" id="pageAvail"></div>
     <div class="avail-note" id="availNote"></div>
+
+    <div class="email-settings">
+      <button type="button" id="emailSettingsToggle" class="email-settings-toggle">
+        ✉️ Email Settings (optional) — auto-send results when a student submits <span id="emailSettingsArrow">▸</span>
+      </button>
+      <div class="email-settings-body" id="emailSettingsBody">
+        <div class="email-settings-hint">
+          Fill these in once you've created a free <a href="https://www.emailjs.com" target="_blank" rel="noopener">EmailJS</a> account.
+          These values get embedded into every "Download Student Version" file you export, so results are emailed to you automatically the moment a student submits — no action needed from them.
+        </div>
+        <div class="form-field">
+          <label for="teacherEmail">Your email (where results are sent)</label>
+          <input type="text" id="teacherEmail" placeholder="you@example.com">
+        </div>
+        <div class="form-field">
+          <label for="emailjsPublicKey">EmailJS Public Key</label>
+          <input type="text" id="emailjsPublicKey" placeholder="e.g. AbCdEfGhIjKlMnOp">
+        </div>
+        <div class="form-field">
+          <label for="emailjsServiceId">EmailJS Service ID</label>
+          <input type="text" id="emailjsServiceId" placeholder="e.g. service_xxxxxxx">
+        </div>
+        <div class="form-field">
+          <label for="emailjsTemplateId">EmailJS Template ID</label>
+          <input type="text" id="emailjsTemplateId" placeholder="e.g. template_xxxxxxx">
+        </div>
+        <div class="email-settings-hint">
+          Leave these blank for now if you don't have them yet — the exported test will still work and let students download a PDF instead. You can regenerate/export again once you have your keys.
+        </div>
+      </div>
+    </div>
 
     <button type="button" id="generateBtn">Generate Test</button>
   </div>
@@ -1104,7 +1175,13 @@ document.getElementById('backBtn').addEventListener('click', () => {
 
 document.getElementById('exportBtn').addEventListener('click', () => {
   if (!finalizedQuiz.length) return;
-  const html = buildStudentHTML(finalizedQuiz, rangeLabel.textContent);
+  const emailConfig = {
+    teacherEmail: document.getElementById('teacherEmail').value.trim(),
+    publicKey: document.getElementById('emailjsPublicKey').value.trim(),
+    serviceId: document.getElementById('emailjsServiceId').value.trim(),
+    templateId: document.getElementById('emailjsTemplateId').value.trim()
+  };
+  const html = buildStudentHTML(finalizedQuiz, rangeLabel.textContent, emailConfig);
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1117,14 +1194,27 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-function buildStudentHTML(quiz, rangeText){
+document.getElementById('emailSettingsToggle').addEventListener('click', () => {
+  document.querySelector('.email-settings').classList.toggle('open');
+});
+
+function buildStudentHTML(quiz, rangeText, emailConfig){
+  emailConfig = emailConfig || {};
   const quizJSON = JSON.stringify(quiz).replace(/</g, '\\u003c');
+  const cfg = {
+    teacherEmail: emailConfig.teacherEmail || '',
+    publicKey: emailConfig.publicKey || '',
+    serviceId: emailConfig.serviceId || '',
+    templateId: emailConfig.templateId || ''
+  };
+  const cfgJSON = JSON.stringify(cfg).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Arabic Test</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"><\/script>
 <style>
   :root{ --navy:#1b3a6b; --gold:#e8b84b; --red:#c0392b; --green:#2e7d32; --gray:#666; }
   *{ box-sizing: border-box; }
@@ -1166,6 +1256,10 @@ function buildStudentHTML(quiz, rangeText){
   .score-panel .msg{ font-size:0.95em; color:#3a3a3a; margin-top:6px; line-height:1.4; }
   .print-btn{ display:none; margin-top:14px; background:var(--navy); color:#fff; border:none; padding:12px 22px; font-size:0.95em; border-radius:24px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
   .print-btn:hover{ background:#274a80; }
+  .email-status{ margin-top:12px; font-size:0.88em; font-weight:600; display:none; }
+  .email-status.sending{ color:#8a6d1c; display:block; }
+  .email-status.success{ color:var(--green); display:block; }
+  .email-status.error{ color:var(--red); display:block; }
   .unanswered-warning{ color:var(--red); text-align:center; font-weight:600; margin-bottom:14px; display:none; font-size:0.95em; padding:0 8px; }
   .q-tag{ display:inline-block; font-size:0.72em; font-weight:700; color:#8a6d1c; background:#fdf1cf; border-radius:10px; padding:2px 8px; margin-bottom:8px; }
   footer{ text-align:center; color:#999; font-size:0.8em; margin-top:24px; padding:0 12px; }
@@ -1206,6 +1300,7 @@ function buildStudentHTML(quiz, rangeText){
     <h2>Your Result</h2>
     <div class="score-num" id="scoreNum">0 / 0</div>
     <div class="msg" id="scoreMsg"></div>
+    <div class="email-status" id="emailStatus"></div>
     <button type="button" id="printBtn" class="print-btn">📄 Download PDF of This Test</button>
   </div>
   <div class="unanswered-warning" id="unansweredWarning">Please answer all questions before submitting.</div>
@@ -1218,6 +1313,11 @@ function buildStudentHTML(quiz, rangeText){
 </div>
 <script>
 const QUIZ = ${quizJSON};
+const EMAIL_CFG = ${cfgJSON};
+const EMAIL_CONFIGURED = !!(EMAIL_CFG.publicKey && EMAIL_CFG.serviceId && EMAIL_CFG.templateId && EMAIL_CFG.teacherEmail);
+if (EMAIL_CONFIGURED && typeof emailjs !== 'undefined') {
+  emailjs.init(EMAIL_CFG.publicKey);
+}
 const quizForm = document.getElementById('quizForm');
 const scorePanel = document.getElementById('scorePanel');
 const unansweredWarning = document.getElementById('unansweredWarning');
@@ -1259,12 +1359,15 @@ QUIZ.forEach((q, i) => {
 document.getElementById('submitBtn').addEventListener('click', () => {
   let answeredCount = 0, score = 0;
   const total = QUIZ.length;
+  const breakdownLines = [];
 
   QUIZ.forEach((q, i) => {
     const qDiv = document.getElementById('q' + i);
     const selected = quizForm.querySelector('input[name="q' + i + '"]:checked');
     qDiv.classList.add('checked');
     const numOpts = q.options.length;
+    const qText = stripHtml(q.title);
+    const correctText = stripHtml(q.options[q.correct]);
 
     if (selected) {
       answeredCount++;
@@ -1279,6 +1382,10 @@ document.getElementById('submitBtn').addEventListener('click', () => {
         if (j === q.correct) { icon.textContent = '✓'; icon.classList.add('right'); }
         else if (j === chosen) { icon.textContent = '✗'; icon.classList.add('wrong'); }
       }
+      breakdownLines.push(
+        (i+1) + '. ' + qText + '\\n   Your answer: ' + stripHtml(q.options[chosen]) +
+        (isCorrect ? '  [Correct]' : '  [Incorrect — correct answer: ' + correctText + ']')
+      );
     } else {
       qDiv.classList.remove('correct', 'incorrect');
       for (let j = 0; j < numOpts; j++) {
@@ -1286,6 +1393,7 @@ document.getElementById('submitBtn').addEventListener('click', () => {
         icon.textContent = j === q.correct ? '✓' : '';
         icon.className = 'feedback-icon' + (j === q.correct ? ' right' : '');
       }
+      breakdownLines.push((i+1) + '. ' + qText + '\\n   Your answer: (not answered)  [Correct answer: ' + correctText + ']');
     }
   });
 
@@ -1301,10 +1409,47 @@ document.getElementById('submitBtn').addEventListener('click', () => {
   else msg = 'رَاجِعِ الدَّرْسَ. Please review the lessons and try again.';
 
   const name = document.getElementById('studentName').value;
+  const date = document.getElementById('studentDate').value;
   document.getElementById('scoreMsg').textContent = (name ? name + ' — ' : '') + msg + ' (' + pct + '%)';
   document.getElementById('printBtn').style.display = 'inline-block';
   scorePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  sendResultsEmail(name, date, score, total, pct, breakdownLines);
 });
+
+function stripHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+function setEmailStatus(state, text) {
+  const el = document.getElementById('emailStatus');
+  el.className = 'email-status ' + state;
+  el.textContent = text;
+}
+
+function sendResultsEmail(name, date, score, total, pct, breakdownLines) {
+  if (!EMAIL_CONFIGURED || typeof emailjs === 'undefined') {
+    return; // No email settings configured — student can still use the PDF button.
+  }
+  setEmailStatus('sending', 'Sending your results…');
+  const params = {
+    to_email: EMAIL_CFG.teacherEmail,
+    student_name: name || '(no name entered)',
+    student_date: date || '(no date entered)',
+    score: score,
+    total: total,
+    percentage: pct + '%',
+    breakdown: breakdownLines.join('\\n\\n')
+  };
+  emailjs.send(EMAIL_CFG.serviceId, EMAIL_CFG.templateId, params)
+    .then(() => setEmailStatus('success', '✅ Results sent to your teacher.'))
+    .catch((err) => {
+      console.error('EmailJS error:', err);
+      setEmailStatus('error', '⚠️ Could not send results automatically. Please download the PDF and share it instead.');
+    });
+}
 
 document.getElementById('printBtn').addEventListener('click', () => {
   window.print();
@@ -1322,6 +1467,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   });
   scorePanel.style.display = 'none';
   document.getElementById('printBtn').style.display = 'none';
+  setEmailStatus('', '');
   unansweredWarning.style.display = 'none';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
